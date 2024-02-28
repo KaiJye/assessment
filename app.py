@@ -1,5 +1,6 @@
-from pdf2jpg import pdf2jpg
+import os
 import yaml
+import json
 from PIL import Image
 from transformers import pipeline
 import pytesseract
@@ -9,11 +10,14 @@ import numpy as np
 import locale
 import datetime
 import streamlit as st
-from pdf2image import convert_from_bytes
+from pdf2image import convert_from_bytes, convert_from_path
+from dotenv import load_dotenv
 
+load_dotenv()
 
-# pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-MODEL_PATH = r"microsoft/trocr-base-printed"
+pytesseract.pytesseract.tesseract_cmd = os.getenv("TESSERACT_PATH")
+POPPLER_PATH = os.getenv("POPPLER_PATH")
+MODEL_PATH = os.getenv("MODEL_PATH")
 TEMPLATES_YAML_PATH = r"templates.yaml"
 TM_PDF_JPG_TEMP_PATH = r"TM.pdf_dir/0_TM.pdf.jpg"
 TM_PDF_PATH = r"TM.pdf"
@@ -55,8 +59,16 @@ def load_templates_yaml(path):
     return templates
 
 
-def convert_and_save_tm_pdf_to_jpg(pdf_path):
-    pdf2jpg.convert_pdf2jpg(pdf_path, '.', dpi=200, pages="0")
+def convert_tm_pdf_to_img(data):
+    images = convert_from_bytes(
+        data, first_page=0, last_page=1, 
+        poppler_path=POPPLER_PATH
+    )
+
+    img = np.array(images[0])
+    img = cv.cvtColor(img, cv.COLOR_RGB2BGR)
+
+    return img
 
 
 def add_margin(img: cv.Mat, margin):
@@ -123,71 +135,124 @@ def read_single_line(img, ocr, templates, template_key, field_key) -> str:
     return text
 
 
+def to_json(address, date, name):
+    return json.dumps(
+        {
+            "address": address,
+            "date": date,
+            "name": name,
+        }
+    )
+
+
 def process_tm_pdf(ocr, templates):
-    convert_and_save_tm_pdf_to_jpg(TM_PDF_PATH)
-    img = load_image(TM_PDF_JPG_TEMP_PATH)
+    with st.form("TM.pdf_form"):
+        uploaded_file = st.file_uploader("Upload TM.pdf")
 
-    name_text = read_single_line(img, ocr, templates, TM_PDF_TEMPLATE_KEY, NAME_KEY)
-    print(f"name: {name_text}")
+        submitted = st.form_submit_button("Submit")
+        
+        if submitted:
 
-    date_text = read_single_line(img, ocr, templates, TM_PDF_TEMPLATE_KEY, DATE_KEY)
-    date_text = date_text.strip().replace(' ', '')
-    locale.setlocale(locale.LC_TIME, 'en')
-    date_text = datetime.datetime.strptime(date_text, "%d%b%Y").strftime("%y%m%d")
-    print(f"date: {date_text}")
+            if uploaded_file is None:
+                st.info("No file uploaded")
 
-    address_text = read_multiline(img, ocr, templates, TM_PDF_TEMPLATE_KEY, ADDRESS_KEY)
-    print(f"address: {address_text}")
+                return
+            
+            with st.spinner("Reading file ..."):
+            
+                img = convert_tm_pdf_to_img(uploaded_file.getvalue())
+
+                name_text = read_single_line(img, ocr, templates, TM_PDF_TEMPLATE_KEY, NAME_KEY)
+                print(f"name: {name_text}")
+
+                date_text = read_single_line(img, ocr, templates, TM_PDF_TEMPLATE_KEY, DATE_KEY)
+                date_text = date_text.strip().replace(' ', '')
+                locale.setlocale(locale.LC_TIME, 'en')
+                date_text = datetime.datetime.strptime(date_text, "%d%b%Y").strftime("%y%m%d")
+                print(f"date: {date_text}")
+
+                address_text = read_multiline(img, ocr, templates, TM_PDF_TEMPLATE_KEY, ADDRESS_KEY)
+                print(f"address: {address_text}")
+
+            st.json(to_json(address_text, date_text, name_text))
 
 
 def process_tnb_digital(ocr, templates):
-    img = load_image(TNB_DIGITAL_PATH)
+    with st.form("tnb_digital.jpg_form"):
+        uploaded_file = st.file_uploader("Upload tnb_digital.jpg")
 
-    name_text = read_single_line(img, ocr, templates, TNB_DIGITAL_TEMPLATE_KEY, NAME_KEY)
-    print(f"name: {name_text}")
+        submitted = st.form_submit_button("Submit")
+        
+        if submitted:
 
-    date_text = read_single_line(img, ocr, templates, TNB_DIGITAL_TEMPLATE_KEY, DATE_KEY)
-    date_text = date_text.strip().replace(' ', '')
-    locale.setlocale(locale.LC_TIME, 'ms')
-    date_text = datetime.datetime.strptime(date_text, "%d.%m.%Y").strftime("%y%m%d")
-    print(f"date: {date_text}")
+            if uploaded_file is None:
+                st.info("No file uploaded")
 
-    address_text = read_multiline(img, ocr, templates, TNB_DIGITAL_TEMPLATE_KEY, ADDRESS_KEY)
-    print(f"address: {address_text}")
+                return
+            
+            with st.spinner("Reading file ..."):
+                img = np.fromstring(uploaded_file.getvalue(), np.uint8)
+                img = cv.imdecode(img, cv.IMREAD_COLOR)
+
+                name_text = read_single_line(img, ocr, templates, TNB_DIGITAL_TEMPLATE_KEY, NAME_KEY)
+                print(f"name: {name_text}")
+
+                date_text = read_single_line(img, ocr, templates, TNB_DIGITAL_TEMPLATE_KEY, DATE_KEY)
+                date_text = date_text.strip().replace(' ', '')
+                locale.setlocale(locale.LC_TIME, 'ms')
+                date_text = datetime.datetime.strptime(date_text, "%d.%m.%Y").strftime("%y%m%d")
+                print(f"date: {date_text}")
+
+                address_text = read_multiline(img, ocr, templates, TNB_DIGITAL_TEMPLATE_KEY, ADDRESS_KEY)
+                print(f"address: {address_text}")
+
+            st.json(to_json(address_text, date_text, name_text))
 
 
 def process_tnb_physical(ocr, templates):
-    img = load_image(TNB_PHYSICAL_PATH)
+    with st.form("tnb_physical.jpg_form"):
+        uploaded_file = st.file_uploader("Upload tnb_physical.jpg")
 
-    name_text = read_single_line(img, ocr, templates, TNB_PHYSICAL_TEMPLATE_KEY, NAME_KEY)
-    print(f"name: {name_text}")
+        submitted = st.form_submit_button("Submit")
+        
+        if submitted:
+            if uploaded_file is None:
+                st.info("No file uploaded")
 
-    st.write(name_text)
+                return
+            
+            with st.spinner("Reading file ..."):
+                img = np.fromstring(uploaded_file.getvalue(), np.uint8)
+                img = cv.imdecode(img, cv.IMREAD_COLOR)
 
-    date_text = read_single_line(img, ocr, templates, TNB_PHYSICAL_TEMPLATE_KEY, DATE_KEY)
-    date_text = date_text.strip().replace(' ', '')
-    locale.setlocale(locale.LC_TIME, 'ms')
-    date_text = datetime.datetime.strptime(date_text, "%d%b%Y").strftime("%y%m%d")
-    print(f"date: {date_text}")
+                name_text = read_single_line(img, ocr, templates, TNB_PHYSICAL_TEMPLATE_KEY, NAME_KEY)
+                print(f"name: {name_text}")
 
-    address_text = read_multiline(img, ocr, templates, TNB_PHYSICAL_TEMPLATE_KEY, ADDRESS_KEY)
-    print(f"address: {address_text}")
+                st.write(name_text)
+
+                date_text = read_single_line(img, ocr, templates, TNB_PHYSICAL_TEMPLATE_KEY, DATE_KEY)
+                date_text = date_text.strip().replace(' ', '')
+                locale.setlocale(locale.LC_TIME, 'ms')
+                date_text = datetime.datetime.strptime(date_text, "%d%b%Y").strftime("%y%m%d")
+                print(f"date: {date_text}")
+
+                address_text = read_multiline(img, ocr, templates, TNB_PHYSICAL_TEMPLATE_KEY, ADDRESS_KEY)
+                print(f"address: {address_text}")
+
+            st.json(to_json(address_text, date_text, name_text))
 
 
 def main():
-    ocr = None
     ocr = get_ocr(MODEL_PATH)
     templates = load_templates_yaml(TEMPLATES_YAML_PATH)
 
-    # process_tm_pdf(ocr, templates)
+    process_tm_pdf(ocr, templates)
     process_tnb_digital(ocr, templates)
     process_tnb_physical(ocr, templates)
 
 
 if __name__ == "__main__":
-    locale.setlocale(locale.LC_TIME, 'ms')
-    
-    # main()
+    main()
 
     # uploaded_file = st.file_uploader("Choose TM.pdf")
 
@@ -204,12 +269,12 @@ if __name__ == "__main__":
 
     #     st.image(img)
 
-    uploaded_file = st.file_uploader("Choose tnb_digital.jpg")
+    # uploaded_file = st.file_uploader("Choose tnb_digital.jpg")
 
-    if uploaded_file is not None:
+    # if uploaded_file is not None:
 
-        img = np.fromstring(uploaded_file.getvalue(), np.uint8)
-        img = cv.imdecode(img, cv.IMREAD_COLOR)
+    #     img = np.fromstring(uploaded_file.getvalue(), np.uint8)
+    #     img = cv.imdecode(img, cv.IMREAD_COLOR)
 
-        st.image(img)
+    #     st.image(img)
 
