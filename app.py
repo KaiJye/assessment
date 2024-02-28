@@ -9,6 +9,7 @@ import numpy as np
 import locale
 import datetime
 import streamlit as st
+from pdf2image import convert_from_bytes
 
 
 # pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -184,5 +185,31 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    locale.setlocale(locale.LC_TIME, 'ms')
+    
+    # main()
+
+    # uploaded_file = st.file_uploader("Choose TM.pdf")
+
+    # if uploaded_file is not None:
+
+    #     images = convert_from_bytes(
+    #         uploaded_file.getvalue(), first_page=0, last_page=1, 
+    #         poppler_path=r"poppler\Library\bin"
+    #     )
+
+    #     img = np.array(images[0])
+    #     img = cv.cvtColor(img, cv.COLOR_RGB2BGR)
+    #     img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+
+    #     st.image(img)
+
+    uploaded_file = st.file_uploader("Choose tnb_digital.jpg")
+
+    if uploaded_file is not None:
+
+        img = np.fromstring(uploaded_file.getvalue(), np.uint8)
+        img = cv.imdecode(img, cv.IMREAD_COLOR)
+
+        st.image(img)
 
