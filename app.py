@@ -163,14 +163,14 @@ def process_tnb_physical(ocr, templates):
 
     st.write(name_text)
 
-    # date_text = read_single_line(img, ocr, templates, TNB_PHYSICAL_TEMPLATE_KEY, DATE_KEY)
-    # date_text = date_text.strip().replace(' ', '')
-    # locale.setlocale(locale.LC_TIME, 'ms')
-    # date_text = datetime.datetime.strptime(date_text, "%d%b%Y").strftime("%y%m%d")
-    # print(f"date: {date_text}")
+    date_text = read_single_line(img, ocr, templates, TNB_PHYSICAL_TEMPLATE_KEY, DATE_KEY)
+    date_text = date_text.strip().replace(' ', '')
+    locale.setlocale(locale.LC_TIME, 'ms')
+    date_text = datetime.datetime.strptime(date_text, "%d%b%Y").strftime("%y%m%d")
+    print(f"date: {date_text}")
 
-    # address_text = read_multiline(img, ocr, templates, TNB_PHYSICAL_TEMPLATE_KEY, ADDRESS_KEY)
-    # print(f"address: {address_text}")
+    address_text = read_multiline(img, ocr, templates, TNB_PHYSICAL_TEMPLATE_KEY, ADDRESS_KEY)
+    print(f"address: {address_text}")
 
 
 def main():
@@ -178,12 +178,11 @@ def main():
     ocr = get_ocr(MODEL_PATH)
     templates = load_templates_yaml(TEMPLATES_YAML_PATH)
 
-    # process_tm_pdf(ocr, templates)
-    # process_tnb_digital(ocr, templates)
+    process_tm_pdf(ocr, templates)
+    process_tnb_digital(ocr, templates)
     process_tnb_physical(ocr, templates)
 
 
 if __name__ == "__main__":
     main()
-    # print(datetime.datetime.strptime("01JUL2019", "%d%b%Y"))
 
