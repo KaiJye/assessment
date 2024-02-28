@@ -174,7 +174,6 @@ def process_tnb_physical(ocr, templates):
 
 
 def main():
-    locale.setlocale(locale.LC_TIME, 'ms_MY')
     ocr = None
     ocr = get_ocr(MODEL_PATH)
     templates = load_templates_yaml(TEMPLATES_YAML_PATH)
