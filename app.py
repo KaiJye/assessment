@@ -178,7 +178,7 @@ def main():
     ocr = get_ocr(MODEL_PATH)
     templates = load_templates_yaml(TEMPLATES_YAML_PATH)
 
-    process_tm_pdf(ocr, templates)
+    # process_tm_pdf(ocr, templates)
     process_tnb_digital(ocr, templates)
     process_tnb_physical(ocr, templates)
 
