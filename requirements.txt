@@ -30,6 +30,7 @@ numpy==1.26.4
 opencv-python==4.9.0.80
 packaging==23.2
 pandas==2.2.0
+pdf2image==1.17.0
 pdf2jpg==1.1
 pikepdf==8.13.0
 pillow==10.2.0
@@ -40,6 +41,7 @@ pydeck==0.8.1b0
 Pygments==2.17.2
 pytesseract==0.3.10
 python-dateutil==2.8.2
+python-dotenv==1.0.1
 pytz==2024.1
 PyYAML==6.0.1
 referencing==0.33.0

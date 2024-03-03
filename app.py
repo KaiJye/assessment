@@ -19,10 +19,6 @@ pytesseract.pytesseract.tesseract_cmd = os.getenv("TESSERACT_PATH")
 POPPLER_PATH = os.getenv("POPPLER_PATH")
 MODEL_PATH = os.getenv("MODEL_PATH")
 TEMPLATES_YAML_PATH = r"templates.yaml"
-TM_PDF_JPG_TEMP_PATH = r"TM.pdf_dir/0_TM.pdf.jpg"
-TM_PDF_PATH = r"TM.pdf"
-TNB_PHYSICAL_PATH = r"tnb_physical.jpg"
-TNB_DIGITAL_PATH = r"tnb_digital.jpg"
 TM_PDF_TEMPLATE_KEY = r"tm"
 TNB_PHYSICAL_TEMPLATE_KEY = r"tnb_physical"
 TNB_DIGITAL_TEMPLATE_KEY = r"tnb_digital"
@@ -33,12 +29,19 @@ BOUNDING_BOX_PERCENT_KEY = r"bounding_box_percent"
 
 
 def get_ocr(model_path):
+    """Initialize OCR model
+    model_path: 'microsoft/trocr-base-printed' or 'microsoft/trocr-small-printed'
+    """
     ocr = pipeline(model=model_path, task="image-to-text")
 
     return ocr
 
 
 def infer(img, ocr):
+    """OCR inference
+    img: opencv Mat, must contain single line text
+    ocr: OCR model
+    """
     if not isinstance(img, Image.Image):
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
         img = Image.fromarray(img)
@@ -48,11 +51,10 @@ def infer(img, ocr):
     return generated_text[0]["generated_text"]
 
 
-def load_image(path):
-    return cv.imread(path)
-
-
 def load_templates_yaml(path):
+    """Load template object
+    path: path to template.yaml
+    """
     with open(path, 'r') as file:
         templates = yaml.safe_load(file)
 
@@ -60,6 +62,9 @@ def load_templates_yaml(path):
 
 
 def convert_tm_pdf_to_img(data):
+    """Convert TM.pdf to opencv Mat object
+    data: pdf file in bytes
+    """
     images = convert_from_bytes(
         data, first_page=0, last_page=1, 
         poppler_path=POPPLER_PATH
@@ -72,11 +77,20 @@ def convert_tm_pdf_to_img(data):
 
 
 def add_margin(img: cv.Mat, margin):
+    """Add white margin to all sides
+    img: opencv Mat
+    margin: margin width (int)"""
     img = cv.copyMakeBorder(img, margin, margin, margin, margin, cv.BORDER_CONSTANT, value=(255, 255, 255))
     return img
 
 
 def crop_percentage(img: cv.Mat, x1, x2, y1, y2):
+    """Crop image by percentage
+    img: opencv Mat
+    x1: left (0.0 - 1.0)
+    x2: right (0.0 - 1.0)
+    y1: top (0.0 - 1.0)
+    y2: bottom (0.0 - 1.0)"""
     height, width, _ = img.shape
 
     left = int(width * x1 / 100)
@@ -88,15 +102,33 @@ def crop_percentage(img: cv.Mat, x1, x2, y1, y2):
 
 
 def crop(img: cv.Mat, x1, x2, y1, y2):
+    """Crop image by pixel
+    img: opencv Mat
+    x1: left (int)
+    x2: right (int)
+    y1: top (int)
+    y2: bottom (int)"""
     return img[y1:y2, x1:x2]
 
 
 def get_bounding_box_percents(templates, template_key, field_key):
+    """get bounding box (percentage) from template
+    templates: template object of templates.yaml
+    template_key: 'tm' or 'tnb_digital' or 'tnb_physical'
+    field_key: 'address' or 'date' or 'name'
+    """
     rect = templates[template_key][field_key][BOUNDING_BOX_PERCENT_KEY]
     return rect
 
 
 def read_multiline(img, ocr, templates, template_key, field_key) -> str:
+    """Read image containing multiple lines of text
+    img: opencv Mat
+    ocr: OCR model
+    templates: template object of templates.yaml
+    template_key: 'tm' or 'tnb_digital' or 'tnb_physical'
+    field_key: 'address' or 'date' or 'name'
+    """
     rect = get_bounding_box_percents(templates, template_key, field_key)
     img = crop_percentage(img, **rect)
 
@@ -127,6 +159,13 @@ def read_multiline(img, ocr, templates, template_key, field_key) -> str:
 
 
 def read_single_line(img, ocr, templates, template_key, field_key) -> str:
+    """Read image containing a single line of text
+    img: opencv Mat
+    ocr: OCR model
+    templates: template object of templates.yaml
+    template_key: 'tm' or 'tnb_digital' or 'tnb_physical'
+    field_key: 'address' or 'date' or 'name'
+    """
     rect = get_bounding_box_percents(templates, template_key, field_key)
     img = crop_percentage(img, **rect)
 
@@ -136,6 +175,8 @@ def read_single_line(img, ocr, templates, template_key, field_key) -> str:
 
 
 def to_json(address, date, name):
+    """Format address, date and name into JSON
+    """
     return json.dumps(
         {
             "address": address,
@@ -146,6 +187,11 @@ def to_json(address, date, name):
 
 
 def convert_date(date_text, original_format, locale_str):
+    """Convert date into "%y%m%d" format. (example 230321)
+    date_text: date to be converted
+    original_format: orignal format of date_text
+    locale_str: locale of date_text, 'ms' for Malay, 'en' for English
+    """
     date_text = date_text.strip().replace(' ', '')
     original_format = original_format.strip().replace(' ', '')
     locale.setlocale(locale.LC_TIME, locale_str)
@@ -154,6 +200,10 @@ def convert_date(date_text, original_format, locale_str):
 
 
 def process_tm_pdf(ocr, templates):
+    """Draw file upload element to process TM.pdf
+    ocr: OCR model
+    templates: templates.yaml object
+    """
     with st.form("TM.pdf_form"):
         uploaded_file = st.file_uploader("Upload TM.pdf")
 
@@ -184,6 +234,10 @@ def process_tm_pdf(ocr, templates):
 
 
 def process_tnb_digital(ocr, templates):
+    """Draw file upload element to process tnb_digital.jpg
+    ocr: OCR model
+    templates: templates.yaml object
+    """
     with st.form("tnb_digital.jpg_form"):
         uploaded_file = st.file_uploader("Upload tnb_digital.jpg")
 
@@ -214,6 +268,10 @@ def process_tnb_digital(ocr, templates):
 
 
 def process_tnb_physical(ocr, templates):
+    """Draw file upload element to process tnb_physical.jpg
+    ocr: OCR model
+    templates: templates.yaml object
+    """
     with st.form("tnb_physical.jpg_form"):
         uploaded_file = st.file_uploader("Upload tnb_physical.jpg")
 
@@ -243,6 +301,8 @@ def process_tnb_physical(ocr, templates):
 
 
 def main():
+    """Entry point
+    """
     ocr = get_ocr(MODEL_PATH)
     templates = load_templates_yaml(TEMPLATES_YAML_PATH)
 
